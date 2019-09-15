@@ -13,7 +13,7 @@ class Server:
         self.connection_details = addr
         self.socket = self.init_socket(self.connection_details)
         self.message_q = Queue()
-        self._stop_requested = False  # state to determine if stopping server requested
+        self._stop = False  # state to determine if stopping server requested
 
     def init_socket(self, addr: tuple):
         s = socket.socket()
@@ -48,49 +48,37 @@ class Server:
         self.logger.debug("Sending message of size {}".format(len(msg)))
         sock.sendall(SocketUtils.wrap_msg(msg))
 
-    def close_connection(self, conn: socket) -> None:
-        self.logger.debug("Closing connection to client {}".format(conn.getpeername()))
-        conn.close()
-
     def serve_forever(self):
-        while True:
+        while not self._stop:
             conn, addr = self.socket.accept()
+            conn.settimeout(Utils.TIMEOUT)
             self.logger.info("New client {} has arrived".format(conn.getpeername()))
             response = {}
             try:
-                conn.settimeout(Utils.TIMEOUT)
                 data = self.read(conn)
                 self.logger.info("Read successfully data from client")
                 if not data:
-                    self.close_connection(conn)
-                    self.logger.info("Closed client connection successfully")
-                else:
-                    response = self.handle_request(Utils.json_decode(data))
-            except (socket.timeout, SocketReadError) as e:
-                self.logger.error(e)
-                self._set_error(response, e.args[0])
-            finally:
+                    break  # client disconnected while writing to socket
+                response = self.handle_request(Utils.json_decode(data))
                 self.write(conn, Utils.json_encode(response))
                 self.logger.info("Sent successfully {}".format(response))
-                self.close_connection(conn)
-                if self._stop_requested:
-                    self.stop_server()
-                    break
-
-    def handle_error(self, response, e):
-        self.logger.error(e)
-        self._set_error(response, e.args[0])
+            except (socket.timeout, SocketReadError) as e:
+                self._handle_socket_err(response, e)
+            finally:
+                self._close_connection(conn)
+                self.logger.info("Closed client connection successfully")
+        self.stop_server()
 
     def handle_request(self, request: dict) -> dict:
         self.logger.debug("Handling request {}".format(request))
 
         command_type, payload = request.get("type"), request.get("payload")
         response = dict(status="OK", type=command_type, payload={})
-        if command_type == "ENQ" and payload:
+        if command_type == "ENQ":
             self._handle_enq(payload)
         elif command_type == "DEQ":
             self._handle_deq(response)
-        elif command_type == "DEBUG" and payload:
+        elif command_type == "DEBUG":
             self._handle_debug(payload)
         elif command_type == "STAT":
             self._handle_stat(response)
@@ -136,7 +124,7 @@ class Server:
     def _handle_stop(self, response: dict):
         # Server will stop after return message to client
         self.logger.debug("Handling stop request")
-        self._stop_requested = True
+        self._stop = True
         self._add_to_payload(response, "message", "server stopped")
 
     def _set_error(self, response: dict, e: str):
@@ -149,6 +137,14 @@ class Server:
             response['payload'] = dict(key=val)
         else:
             payload[key] = val
+
+    def _handle_socket_err(self, response, e):
+        self.logger.error(e)
+        self._set_error(response, e.args[0])
+
+    def _close_connection(self, conn: socket) -> None:
+        self.logger.debug("Closing connection to client {}".format(conn.getpeername()))
+        conn.close()
 
 
 if __name__ == '__main__':

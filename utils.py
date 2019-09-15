@@ -35,12 +35,12 @@ class Utils:
     IP_PORT_REGEX = r'[0-9]+(?:\.[0-9]+){3}:[0-9]+'
     # CONFIGURATION DATA: (move to configuration file)
     HOST, PORT = '127.0.0.1', 301
-    TIMEOUT = 2
+    TIMEOUT = 3
     MAX_CLIENTS = 100
 
     @staticmethod
     def validate_input(in_read: list) -> bool:
-        if 1 > len(in_read) > 2 or in_read[0] not in Utils.ALLOWED_CMDS:
+        if len(in_read) < 1 or len(in_read) > 2 or in_read[0] not in Utils.ALLOWED_CMDS:
             return False
         if len(in_read) == 2 and in_read[1] not in Utils.ALLOWED_DEBUG and not Utils.is_json(in_read[1]):
             return False

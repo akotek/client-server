@@ -1,6 +1,5 @@
-import json
-import unittest
-
+import json, unittest
+from unittest import mock
 from client import Client
 
 
@@ -16,10 +15,15 @@ class MyTestCase(unittest.TestCase):
         pass
         # self.client.close()
 
+    def test_write_prefixed_bytes(self):
+        pass
+
+    def test_read_prefixed_bytes(self):
+        pass
+
     def test_parse_command(self):
         s1 = [
-            ['ENQ', u'{"message": "hello"}'], ["DEBUG", u'{"debug": "on"}'], ["DEBUG", u'{"debug": "off"}']
-        ]
+            ['ENQ', u'{"message": "hello"}'], ['ENQ', u'{"status": "ok", "type": "STAT"}']]
         for i in range(len(s1)):
             expected = {
                 "type": s1[i][0],
@@ -35,6 +39,15 @@ class MyTestCase(unittest.TestCase):
             }
             self.assertEqual(expected, Client.parse_command([s2[i]]))
 
+        s3 = [
+            ["DEBUG", "on"], ["DEBUG", "off"]
+        ]
+        for i in range(len(s3)):
+            expected = {
+                "type": "DEBUG",
+                "payload": dict(debug=s3[i][1])
+            }
+            self.assertEqual(expected, Client.parse_command(s3[i]))
 
 if __name__ == '__main__':
     unittest.main()
