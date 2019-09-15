@@ -5,15 +5,17 @@ import struct
 
 
 class SocketUtils:
-    # class for common operations on socket object:
+
+    # Class for common operations on socket object,
+    # used by both Server and Client
 
     @staticmethod
     def wrap_msg(msg: bytes) -> bytes:
         return struct.pack('>I', len(msg)) + msg
 
     @staticmethod
-    def unwrap_msg(raw_msglen):
-        return struct.unpack('>I', raw_msglen)[0]
+    def unwrap_msg(msg: bytes) -> int:
+        return struct.unpack('>I', msg)[0]
 
     @staticmethod
     def recvall(sock: socket, n: int) -> bytes:
@@ -29,17 +31,18 @@ class SocketUtils:
 class Utils:
     # CONSTANTS:
     ALLOWED_CMDS = ['ENQ', 'DEQ', 'DEBUG', 'STAT', 'STOP', 'EXIT']
+    ALLOWED_DEBUG = ['on', 'off']
     IP_PORT_REGEX = r'[0-9]+(?:\.[0-9]+){3}:[0-9]+'
     # CONFIGURATION DATA: (move to configuration file)
     HOST, PORT = '127.0.0.1', 301
-    TIMEOUT = 180
+    TIMEOUT = 2
     MAX_CLIENTS = 100
 
     @staticmethod
     def validate_input(in_read: list) -> bool:
         if 1 > len(in_read) > 2 or in_read[0] not in Utils.ALLOWED_CMDS:
             return False
-        if len(in_read) == 2 and not Utils.is_json(in_read[1]):
+        if len(in_read) == 2 and in_read[1] not in Utils.ALLOWED_DEBUG and not Utils.is_json(in_read[1]):
             return False
         return True
 
@@ -65,3 +68,10 @@ class Utils:
     @staticmethod
     def json_encode(obj, encoding="utf-8") -> bytes:
         return json.dumps(obj).encode(encoding)
+
+
+class SocketReadError(RuntimeError):
+    DEFAULT = "Error reading from socket"
+
+    def __init__(self, message: str = DEFAULT) -> None:
+        super().__init__(message)
