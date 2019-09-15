@@ -1,24 +1,30 @@
 import json
+import logging
 import re
 import socket
 import struct
+from logging import Logger
 
 
-class SocketUtils:
+class SocketHelper:
 
     # Class for common operations on socket object,
     # used by both Server and Client
 
-    @staticmethod
-    def wrap_msg(msg: bytes) -> bytes:
+    def wrap_msg(self, msg: bytes) -> bytes:
         return struct.pack('>I', len(msg)) + msg
 
-    @staticmethod
-    def unwrap_msg(msg: bytes) -> int:
+    def unwrap_msg(self, msg: bytes) -> int:
         return struct.unpack('>I', msg)[0]
 
-    @staticmethod
-    def recvall(sock: socket, n: int) -> bytes:
+    def read(self, sock: socket, n) -> bytes:
+        # read prefix size:
+        msg_bytes = self.recvall(sock, n)
+        if not msg_bytes:
+            raise SocketReadError
+        return msg_bytes
+
+    def recvall(self, sock: socket, n: int) -> bytes:
         data = b''
         while len(data) < n:
             packet = sock.recv(n - len(data))
@@ -26,6 +32,10 @@ class SocketUtils:
                 return None
             data += packet
         return data
+
+    def write(self, sock, msg):
+        wrapped_msg = self.wrap_msg(msg)
+        sock.sendall(wrapped_msg)
 
 
 class Utils:

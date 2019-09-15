@@ -3,7 +3,7 @@ import logging.config, socket, sys
 from logging import Logger
 from queue import Queue
 
-from utils import Utils, SocketUtils, SocketReadError
+from utils import Utils, SocketHelper, SocketReadError
 
 
 class Server:
@@ -14,6 +14,7 @@ class Server:
         self.socket = self.init_socket(self.connection_details)
         self.message_q = Queue()
         self._stop = False  # state to determine if stopping server requested
+        self._socket_helper = SocketHelper()  # helper with common socket operations
 
     def init_socket(self, addr: tuple):
         s = socket.socket()
@@ -32,39 +33,45 @@ class Server:
     # Includes public/testable methods:
     # ---------------------------------------------------------------------------
     def read(self, sock: socket) -> bytes:
-        hdr_len = 4
-        self.logger.debug("Reading from socket {} bytes".format(hdr_len))
-        raw_msglen = SocketUtils.recvall(sock, hdr_len)
-        if not raw_msglen:
+        try:
+            hlen = 4
+            self.logger.debug("Reading from socket {} bytes".format(hlen))
+            raw_msglen = self._socket_helper.read(sock, hlen)
+            msglen = self._socket_helper.unwrap_msg(raw_msglen)
+            self.logger.debug("Reading from socket {} bytes".format(msglen))
+            full_msg = self._socket_helper.read(sock, msglen)
+            return full_msg
+        except SocketReadError:
             raise SocketReadError
-        msglen = SocketUtils.unwrap_msg(raw_msglen)
-        self.logger.debug("Reading from socket {} bytes".format(msglen))
-        msg_bytes = SocketUtils.recvall(sock, msglen)
-        if not msg_bytes:
-            raise SocketReadError
-        return msg_bytes
 
     def write(self, sock: socket, msg: bytes) -> None:
-        self.logger.debug("Sending message of size {}".format(len(msg)))
-        sock.sendall(SocketUtils.wrap_msg(msg))
+        self.logger.debug("Performing write to socket of size {}".format(len(msg)))
+        self._socket_helper.write(sock, msg)
+
+    def queue_size(self):
+        return self.message_q.qsize()
 
     def serve_forever(self):
         while not self._stop:
+            # connect new client:
             conn, addr = self.socket.accept()
             conn.settimeout(Utils.TIMEOUT)
             self.logger.info("New client {} has arrived".format(conn.getpeername()))
             response = {}
             try:
+                # read from socket:
                 data = self.read(conn)
                 self.logger.info("Read successfully data from client")
                 if not data:
                     break  # client disconnected while writing to socket
+                # write response to socket:
                 response = self.handle_request(Utils.json_decode(data))
                 self.write(conn, Utils.json_encode(response))
                 self.logger.info("Sent successfully {}".format(response))
             except (socket.timeout, SocketReadError) as e:
                 self._handle_socket_err(response, e)
             finally:
+                # close connection:
                 self._close_connection(conn)
                 self.logger.info("Closed client connection successfully")
         self.stop_server()
@@ -134,7 +141,7 @@ class Server:
     def _add_to_payload(self, response: dict, key: str, val: object):
         payload = response.get('payload')
         if not payload:
-            response['payload'] = dict(key=val)
+            response['payload'] = {key: val}
         else:
             payload[key] = val
 
@@ -150,5 +157,6 @@ class Server:
 if __name__ == '__main__':
     Utils.validate_launch(sys.argv, "server")
     host, port = sys.argv[2].split(":")
+
     server = Server((host, int(port)))
     server.serve_forever()
