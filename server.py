@@ -3,7 +3,7 @@ import logging.config, socket, sys
 from logging import Logger
 from queue import Queue
 
-from utils import Utils, SocketHelper, SocketReadError
+from utils import Utils, SocketHelper, SocketReadError, SocketWriteError
 
 
 class Server:
@@ -47,6 +47,7 @@ class Server:
     def write(self, sock: socket, msg: bytes) -> None:
         self.logger.debug("Performing write to socket of size {}".format(len(msg)))
         self._socket_helper.write(sock, msg)
+        self.logger.debug("Write to socket completed successfully")
 
     def queue_size(self):
         return self.message_q.qsize()
@@ -68,7 +69,7 @@ class Server:
                 response = self.handle_request(Utils.json_decode(data))
                 self.write(conn, Utils.json_encode(response))
                 self.logger.info("Sent successfully {}".format(response))
-            except (socket.timeout, SocketReadError) as e:
+            except (socket.timeout, SocketReadError, SocketWriteError) as e:
                 self._handle_socket_err(response, e)
             finally:
                 # close connection:

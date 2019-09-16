@@ -1,18 +1,24 @@
 import json, unittest
-from unittest import mock
 from client import Client
-from server import Server
 
 
 class MyTestCase(unittest.TestCase):
 
     def setUp(self):
         # set up client object without connection to socket
-        addr = ('127.0.0.1', 300)
-        self.client = Client(addr)
+        self.addr = ('127.0.0.1', 300)
+        self.client = Client(self.addr)
 
     def tearDown(self):
-        self.client.close_connection()
+        pass
+
+    def test_read(self):
+        # Integration test
+        pass
+
+    def test_write(self):
+        # Integration test
+        pass
 
     def test_parse_command(self):
         s1 = [

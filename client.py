@@ -1,8 +1,6 @@
-import json, sys, logging.config, uuid
-from socket import socket
+import json, sys, logging.config, uuid, socket
 from logging import Logger
-
-from utils import Utils, SocketHelper, SocketReadError
+from utils import Utils, SocketHelper, SocketReadError, SocketWriteError
 
 
 class Client:
@@ -15,7 +13,7 @@ class Client:
         self._socket_helper = SocketHelper()
 
     def connect(self):
-        self.socket = socket()  # each connect opens a new socket
+        self.socket = socket.socket()  # each connect opens a new socket
         self.socket.connect(self.connection_details)
         self.socket.settimeout(Utils.TIMEOUT)  # timeout for socket conn
         self.logger.info("Client connected successfully to {}".format(self.connection_details))
@@ -45,6 +43,7 @@ class Client:
     def write(self, msg: bytes) -> None:
         self.logger.debug("Performing write to socket of size {}".format(len(msg)))
         self._socket_helper.write(self.socket, msg)
+        self.logger.debug("Write to socket completed successfully")
 
     def close_connection(self):
         self.socket.close()
@@ -60,19 +59,22 @@ class Client:
 
             self.connect()
 
-            # send request to server:
-            request = self.parse_command(in_read)
-            self.write(Utils.json_encode(request))
-            self.logger.info("Client {} sent successfully command: {}".format(self._get_name(), request))
+            try:
+                # send request to server:
+                request = self.parse_command(in_read)
+                self.write(Utils.json_encode(request))
+                self.logger.info("Client {} sent successfully command: {}".format(self._get_name(), request))
 
-            # read response from server:
-            response = Utils.json_decode(self.read())
-            self.logger.info("Client {} received successfully response {}\n".format(self._get_name(), response))
-            self.close_connection()
-
-            if request.get("type") == "EXIT":
-                self.logger.info("Closing server and existing client stdin")
-                exit()
+                # read response from server:
+                response = Utils.json_decode(self.read())
+                self.logger.info("Client {} received successfully response {}\n".format(self._get_name(), response))
+                self.close_connection()
+            except (socket.timeout, SocketReadError, SocketWriteError) as e:
+                self.logger.error("Exception occurred".format(e))
+            else:
+                if request.get("type") == "EXIT":
+                    self.logger.info("Closing server and existing client stdin")
+                    exit()
 
     # ---------------------------------------------------------------------------
     # Helper functions at module level.

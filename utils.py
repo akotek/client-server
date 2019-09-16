@@ -1,15 +1,11 @@
-import json
-import logging
-import re
-import socket
-import struct
-from logging import Logger
+import json, re, socket, struct
 
 
 class SocketHelper:
 
     # Class for common operations on socket object,
     # used by both Server and Client
+
 
     def wrap_msg(self, msg: bytes) -> bytes:
         return struct.pack('>I', len(msg)) + msg
@@ -18,18 +14,18 @@ class SocketHelper:
         return struct.unpack('>I', msg)[0]
 
     def read(self, sock: socket, n) -> bytes:
-        # read prefix size:
         msg_bytes = self.recvall(sock, n)
         if not msg_bytes:
             raise SocketReadError
         return msg_bytes
 
     def recvall(self, sock: socket, n: int) -> bytes:
+        # read from socket n_bytes until done
         data = b''
         while len(data) < n:
             packet = sock.recv(n - len(data))
             if not packet:
-                return None
+                raise SocketWriteError
             data += packet
         return data
 
@@ -39,6 +35,9 @@ class SocketHelper:
 
 
 class Utils:
+    # Common data class with common static methods
+    # Mostly for parsing / validation:
+
     # CONSTANTS:
     ALLOWED_CMDS = ['ENQ', 'DEQ', 'DEBUG', 'STAT', 'STOP', 'EXIT']
     ALLOWED_DEBUG = ['on', 'off']
@@ -80,8 +79,21 @@ class Utils:
         return json.dumps(obj).encode(encoding)
 
 
-class SocketReadError(RuntimeError):
+class SocketException(RuntimeError):
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
+class SocketReadError(SocketException):
     DEFAULT = "Error reading from socket"
+
+    def __init__(self, message: str = DEFAULT) -> None:
+        super().__init__(message)
+
+
+class SocketWriteError(SocketException):
+    DEFAULT = "Error writing to socket"
 
     def __init__(self, message: str = DEFAULT) -> None:
         super().__init__(message)
