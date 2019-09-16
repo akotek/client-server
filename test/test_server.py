@@ -56,10 +56,10 @@ class MyTestCase(unittest.TestCase):
         req1 = self._gen_req("DEBUG", payload={"debug": "on"})
         self.server.handle_request(req1)
         DEBUG, INFO = 10, 20
-        self.assertEqual(DEBUG, self.server.logger.level)
+        self.assertEqual(DEBUG, self.server.logger.handlers[0].level)
         req2 = self._gen_req("DEBUG", payload={"debug": "off"})
         self.server.handle_request(req2)
-        self.assertEqual(INFO, self.server.logger.level)
+        self.assertEqual(INFO, self.server.logger.handlers[0].level)
 
     def test_handle_stat(self):
         req1 = self._gen_req("ENQ", payload={"test": "test"})

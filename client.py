@@ -28,21 +28,21 @@ class Client:
     # Includes public/testable methods:
     # ---------------------------------------------------------------------------
 
-    def read(self) -> bytes:
+    def read(self, sock: socket) -> bytes:
         try:
-            hlen = 4
-            self.logger.debug("Reading from socket {} bytes".format(hlen))
-            raw_msglen = self._socket_helper.read(self.socket, hlen)
-            msglen = self._socket_helper.unwrap_msg(raw_msglen)
-            self.logger.debug("Reading from socket {} bytes".format(msglen))
-            full_msg = self._socket_helper.read(self.socket, msglen)
-            return full_msg
+            self.logger.debug("Performing read from socket")
+            msg = self._socket_helper.read(sock)
+            self.logger.debug("Read from socket completed successfully")
+            return msg
         except SocketReadError:
             raise SocketReadError
 
-    def write(self, msg: bytes) -> None:
+    def write(self, sock: socket, msg: bytes) -> None:
         self.logger.debug("Performing write to socket of size {}".format(len(msg)))
-        self._socket_helper.write(self.socket, msg)
+        try:
+            self._socket_helper.write(sock, msg)
+        except SocketWriteError:
+            raise SocketWriteError
         self.logger.debug("Write to socket completed successfully")
 
     def close_connection(self):
@@ -62,17 +62,17 @@ class Client:
             try:
                 # send request to server:
                 request = self.parse_command(in_read)
-                self.write(Utils.json_encode(request))
+                self.write(self.socket, Utils.json_encode(request))
                 self.logger.info("Client {} sent successfully command: {}".format(self._get_name(), request))
 
                 # read response from server:
-                response = Utils.json_decode(self.read())
-                self.logger.info("Client {} received successfully response {}\n".format(self._get_name(), response))
+                response = Utils.json_decode(self.read(self.socket))
+                self.logger.info("Client {} received successfully response {}".format(self._get_name(), response))
                 self.close_connection()
             except (socket.timeout, SocketReadError, SocketWriteError) as e:
                 self.logger.error("Exception occurred".format(e))
             else:
-                if request.get("type") == "EXIT":
+                if request.get("type") == "EXIT" or "STOP":
                     self.logger.info("Closing server and existing client stdin")
                     exit()
 
@@ -82,7 +82,7 @@ class Client:
 
     def parse_command(self, s: list) -> dict:
         self.logger.debug("Parsing given string {} to command".format(s))
-        type, payload = s[0], None
+        type, payload = s[0], {}
         if len(s) == 2:
             if type == "DEBUG":
                 payload = dict(debug=s[1])
@@ -94,11 +94,12 @@ class Client:
         }
         return request
 
-    def _get_name(self):
+    def _get_name(self) -> str:
         return '(' + str(self.uid[0:2]) + ')'
 
 
 if __name__ == '__main__':
+
     Utils.validate_launch(sys.argv, "client")
     host, port = sys.argv[2].split(":")
 

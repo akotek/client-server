@@ -34,7 +34,7 @@ class MyTestCase(unittest.TestCase):
         for i in range(len(s2)):
             expected = {
                 "type": s2[i],
-                "payload": None
+                "payload": {}
             }
             self.assertEqual(expected, self.client.parse_command([s2[i]]))
 
