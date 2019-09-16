@@ -72,7 +72,7 @@ class Client:
             except (socket.timeout, SocketReadError, SocketWriteError) as e:
                 self.logger.error("Exception occurred".format(e))
             else:
-                if request.get("type") == "EXIT" or "STOP":
+                if request.get("type") == "EXIT" or request.get("type") == "STOP":
                     self.logger.info("Closing server and existing client stdin")
                     exit()
 
