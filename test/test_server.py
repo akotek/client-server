@@ -10,7 +10,7 @@ class MyTestCase(unittest.TestCase):
         self.server = Server(self.addr)
 
     def tearDown(self):
-        self.server.stop_server()
+        pass
 
     def test_read(self):
         # Integration test
@@ -28,7 +28,7 @@ class MyTestCase(unittest.TestCase):
             "payload": {}
         }
         self.assertEqual(expected, self.server.handle_request(request))
-        self.assertEqual(1, self.server.queue_size())
+        self.assertEqual(1, self.server.message_q.qsize())
 
     def test_handle_command_dequeue_fifo_order(self):
         req1 = self._gen_req("ENQ", payload={"1": "is bad"})

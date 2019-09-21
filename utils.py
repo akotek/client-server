@@ -1,5 +1,6 @@
 import json, re, socket, struct
 import logging
+from enum import Enum
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +44,7 @@ class SocketHelper:
     def write(self, sock: socket, msg: bytes) -> None:
         self.logger.debug("Writing to socket {} bytes".format(len(msg)))
         wrapped_msg = self.wrap_msg(msg)
-        sock.sendall(wrapped_msg)
+        sock.sendall(wrapped_msg)  # sends entire buffer or raises exception
         self.logger.debug("Writing to socket completed successfully")
 
 
@@ -72,6 +73,11 @@ class SocketWriteError(SocketException):
         super().__init__(message)
 
 
+class StatusCode(Enum):
+    OK = 1,
+    ERR = 2
+
+
 # ---------------------------------------------------------------------------
 # Common data class with common static methods
 # Mostly for parsing / validation:
@@ -81,7 +87,6 @@ class Utils:
     ALLOWED_CMDS = ['ENQ', 'DEQ', 'DEBUG', 'STAT', 'STOP', 'EXIT']
     ALLOWED_DEBUG = ['on', 'off']
     IP_PORT_REGEX = r'[0-9]+(?:\.[0-9]+){3}:[0-9]+'
-    STATUS_OK, STATUS_ERR = "OK", "ERR"
     # CONFIGURATION DATA: (move to configuration file)
     HOST, PORT = '127.0.0.1', 301
     TIMEOUT = 3

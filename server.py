@@ -3,7 +3,7 @@ import logging.config, socket, sys
 from logging import Logger, StreamHandler
 from queue import Queue
 
-from utils import Utils, SocketHelper, SocketReadError, SocketWriteError
+from utils import Utils, SocketHelper, SocketReadError, SocketWriteError, StatusCode
 
 
 class Server:
@@ -11,7 +11,7 @@ class Server:
     def __init__(self, addr: tuple):
         self.logger = self.init_logger()
         self.connection_details = addr
-        self.socket = self.init_socket(self.connection_details)
+        self.socket = None
         self.message_q = Queue()
         self._stop = False  # state to determine if stopping server requested
         self._socket_helper = SocketHelper()  # helper with common socket operations
@@ -49,10 +49,9 @@ class Server:
             raise SocketWriteError
         self.logger.debug("Write to socket completed successfully")
 
-    def queue_size(self):
-        return self.message_q.qsize()
-
     def serve_forever(self):
+        # init socket
+        self.init_socket(self.connection_details)
         while not self._stop:
             # connect new client:
             conn, addr = self.socket.accept()
@@ -80,7 +79,7 @@ class Server:
     def handle_request(self, request: dict) -> dict:
         self.logger.debug("Handling request {}".format(request))
 
-        command_type, payload, status_code = request.get("type"), request.get("payload"), Utils.STATUS_OK
+        command_type, payload, status_code = request.get("type"), request.get("payload"), StatusCode.OK
         if command_type == "ENQ":
             status_code, payload = self._handle_enq(payload)
         elif command_type == "DEQ":
@@ -106,19 +105,19 @@ class Server:
     def _handle_enq(self, payload: dict) -> tuple:
         self.logger.debug("Handling enqueue request")
         self.message_q.put(payload)
-        payload = {}    # response should be empty
-        return Utils.STATUS_OK, payload
+        payload = {}  # response should be empty
+        return StatusCode.OK, payload
 
     def _handle_deq(self, payload: dict) -> tuple:
         self.logger.debug("Handling dequeue request")
         if self.message_q.empty():
             self.logger.debug("Trying to dequeue empty queue")
             self._set_error(payload, "No messages in queue")
-            return Utils.STATUS_ERR, payload
+            return StatusCode.ERR, payload
         else:
             payload = self.message_q.get()
             self.logger.debug("Queued message from queue successfully")
-            return Utils.STATUS_OK, payload
+            return StatusCode.OK, payload
 
     def _handle_debug(self, payload: dict) -> tuple:
         self.logger.debug("Handling debug request")
@@ -126,26 +125,26 @@ class Server:
         if type(handler) is not StreamHandler:
             self.logger.error("Logging configuration does not match logic")
             self._set_error(payload, "Logging errors")
-            return Utils.STATUS_ERR, payload
+            return StatusCode.ERR, payload
         if payload['debug'] == "on":
             handler.setLevel(logging.DEBUG)
             self.logger.info("Changed logging level to DEBUG")
         else:
             handler.setLevel(logging.INFO)
             self.logger.info("Changed logging level to INFO and not DEBUG")
-        return Utils.STATUS_OK, payload
+        return StatusCode.OK, payload
 
     def _handle_stat(self, payload: dict) -> tuple:
         self.logger.debug("Handling stat request")
         self._add_to_payload(payload, "size", self.message_q.qsize())
-        return Utils.STATUS_OK, payload
+        return StatusCode.OK, payload
 
     def _handle_stop(self, payload: dict) -> tuple:
         # Server will stop after return message to client
         self.logger.debug("Handling stop request")
         self._stop = True
         self._add_to_payload(payload, "message", "server stopped")
-        return Utils.STATUS_OK, payload
+        return StatusCode.OK, payload
 
     def _set_error(self, payload: dict, e: str) -> None:
         self._add_to_payload(payload, "message", e)
@@ -153,9 +152,9 @@ class Server:
     def _add_to_payload(self, payload: dict, key: str, val: object) -> None:
         payload[key] = val
 
-    def _create_response(self, status: str, type: str, payload: dict) -> dict:
+    def _create_response(self, status: StatusCode, type: str, payload: dict) -> dict:
         response = {
-            "status": status,
+            "status": status.name,
             "type": type,
             "payload": payload
         }
@@ -171,7 +170,6 @@ class Server:
 
 
 if __name__ == '__main__':
-
     Utils.validate_launch(sys.argv, "server")
     host, port = sys.argv[2].split(":")
 
