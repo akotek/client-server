@@ -51,7 +51,7 @@ class Server:
 
     def serve_forever(self):
         # init socket
-        self.init_socket(self.connection_details)
+        self.socket = self.init_socket(self.connection_details)
         while not self._stop:
             # connect new client:
             conn, addr = self.socket.accept()
