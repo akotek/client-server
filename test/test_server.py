@@ -10,7 +10,7 @@ class MyTestCase(unittest.TestCase):
         self.server = Server(self.addr)
 
     def tearDown(self):
-        pass
+        self.server.stop_server()
 
     def test_read(self):
         # Integration test

@@ -85,18 +85,22 @@ class StatusCode(Enum):
 class Utils:
     # CONSTANTS:
     ALLOWED_CMDS = ['ENQ', 'DEQ', 'DEBUG', 'STAT', 'STOP', 'EXIT']
-    ALLOWED_DEBUG = ['on', 'off']
+    ALLOWED_DEBUG_MODES = ['on', 'off']
     IP_PORT_REGEX = r'[0-9]+(?:\.[0-9]+){3}:[0-9]+'
     # CONFIGURATION DATA: (move to configuration file)
     HOST, PORT = '127.0.0.1', 301
-    TIMEOUT = 3
+    TIMEOUT = 1
     MAX_CLIENTS = 100
 
     @staticmethod
     def validate_input(in_read: list) -> bool:
         if len(in_read) < 1 or len(in_read) > 2 or in_read[0] not in Utils.ALLOWED_CMDS:
             return False
-        if len(in_read) == 2 and in_read[1] not in Utils.ALLOWED_DEBUG and not Utils.is_json(in_read[1]):
+        if len(in_read) == 2:
+            if in_read[0] == "ENQ":
+                return Utils.is_json(in_read[1])
+            if in_read[0] == "DEBUG":
+                return in_read[1] in Utils.ALLOWED_DEBUG_MODES
             return False
         return True
 

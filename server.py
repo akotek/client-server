@@ -11,14 +11,14 @@ class Server:
     def __init__(self, addr: tuple):
         self.logger = self.init_logger()
         self.connection_details = addr
-        self.socket = None
+        self.socket = self.init_socket()
         self.message_q = Queue()
         self._stop = False  # state to determine if stopping server requested
         self._socket_helper = SocketHelper()  # helper with common socket operations
 
-    def init_socket(self, addr: tuple):
+    def init_socket(self):
         s = socket.socket()
-        s.bind(addr)
+        s.bind(self.connection_details)
         s.listen(Utils.MAX_CLIENTS)
         self.logger.info("server initialized, listening on {}".format(self.connection_details))
         return s
@@ -50,8 +50,6 @@ class Server:
         self.logger.debug("Write to socket completed successfully")
 
     def serve_forever(self):
-        # init socket
-        self.socket = self.init_socket(self.connection_details)
         while not self._stop:
             # connect new client:
             conn, addr = self.socket.accept()
